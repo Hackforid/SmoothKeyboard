@@ -3,6 +3,7 @@ package com.smilehacker.smoothkeyboard
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Dialog
+import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
 import android.support.v4.app.DialogFragment
@@ -62,6 +63,12 @@ class InputerFragment: DialogFragment() {
 
     private fun initUI() {
         val detector = KeyBoardDetector()
+        mKeyboardContainer = FrameLayout(context)
+        val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0)
+        lp.gravity = Gravity.BOTTOM
+        mKeyboardContainer.layoutParams = lp
+        mKeyboardContainer.setBackgroundColor(Color.WHITE)
+        mDecorView.addView(mKeyboardContainer)
         mDecorView.addAutoRemovableOnPreDrawListener(detector)
 //        mDecorView.addAutoRemovableOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
 //            private var mPreContentHeight = -1
@@ -105,7 +112,7 @@ class InputerFragment: DialogFragment() {
 
             if (mPreContentHeight != -1) {
                 val isKeyShow = getKeyboardHeight() > 0
-                Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight")
+                Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight ${mDecorView::class.java.canonicalName}")
                 animateInputContent(isKeyShow, contentHeight, mPreContentHeight)
 
             }
@@ -118,18 +125,20 @@ class InputerFragment: DialogFragment() {
     }
 
     private fun animateInputContent(isKeyboardShown: Boolean, contentHeight: Int, preContentHeight: Int) {
+        mKeyboardContainer.setHeight(mDecorView.height - preContentHeight)
         mContainer?.setHeight(preContentHeight)
         mHeightAnimator.cancel()
 
         mHeightAnimator = ObjectAnimator.ofInt(preContentHeight, contentHeight)
         mHeightAnimator.interpolator = FastOutSlowInInterpolator()
-        mHeightAnimator.duration = 300
+        mHeightAnimator.duration = if (isKeyboardShown) 150 else 300
         Log.i("xx", "isKeyShow $isKeyboardShown $preContentHeight to $contentHeight ")
 
         mHeightAnimator.addUpdateListener {
             Log.i("xx", "anim height to ${it.animatedValue}")
             mContainer?.setHeight(it.animatedValue as Int)
 //            mContainer?.requestLayout()
+            mKeyboardContainer.setHeight(mDecorView.height - it.animatedValue as Int)
         }
 
         mHeightAnimator.start()
