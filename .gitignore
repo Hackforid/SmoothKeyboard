@@ -15,8 +15,5 @@ gen-external-apklibs
 build/
 *.apk
 *.hprof
-gradle/
-gradlew
-gradlew.bat
 infer-out/
 captures/
