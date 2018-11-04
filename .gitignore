@@ -19,3 +19,4 @@ gradle/
 gradlew
 gradlew.bat
 infer-out/
+captures/
