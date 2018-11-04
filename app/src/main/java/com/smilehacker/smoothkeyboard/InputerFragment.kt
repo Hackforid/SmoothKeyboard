@@ -24,7 +24,8 @@ class InputerFragment: DialogFragment() {
     private val mContainer by lazy { view?.findViewById<ViewGroup>(R.id.container) }
     private val mResizableContentView by lazy { mDecorView.findViewById<ViewGroup>(Window.ID_ANDROID_CONTENT) }
     private val mUnResizableContentView by lazy { mResizableContentView.parent as ViewGroup }
-    private var mContentHeight : Int = 0
+    private lateinit var mKeyboardContainer: FrameLayout
+
 
 
     private var mHeightAnimator: ValueAnimator = ObjectAnimator()
@@ -61,8 +62,27 @@ class InputerFragment: DialogFragment() {
 
     private fun initUI() {
         val detector = KeyBoardDetector()
-        mResizableContentView?.post {  mContentHeight = mResizableContentView.height }
         mDecorView.addAutoRemovableOnPreDrawListener(detector)
+//        mDecorView.addAutoRemovableOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+//            private var mPreContentHeight = -1
+//            override fun onGlobalLayout() {
+//                Log.i("xx", "onGlobalLayout keyboardHeight = ${getKeyboardHeight()} contentHeight = ${mResizableContentView.height} preContentHeight = ${mPreContentHeight}")
+//                val contentHeight = mResizableContentView.height
+//                val keyboardHeight = getKeyboardHeight()
+//                if (contentHeight == mPreContentHeight) {
+//                    return
+//                }
+//
+//                if (mPreContentHeight != -1) {
+//                    val isKeyShow = getKeyboardHeight() > 0
+//                    Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight")
+//                    animateInputContent(isKeyShow, contentHeight, mPreContentHeight)
+//
+//                }
+//
+//                mPreContentHeight = contentHeight
+//            }
+//        })
     }
 
     private fun getKeyboardHeight(): Int {
@@ -73,77 +93,42 @@ class InputerFragment: DialogFragment() {
 
 
     private inner class KeyBoardDetector: ViewTreeObserver.OnPreDrawListener {
-
-        private var mLastKeyboardHeight = -1
+        private var mPreContentHeight = -1
 
         override fun onPreDraw(): Boolean {
-            Log.i("xx", "onPreDraw keyboardHeight = ${getKeyboardHeight()}; lastKeyboard=$mLastKeyboardHeight; contentHeight = ${mResizableContentView.height} unResizeHeight=${mContentHeight}")
+            Log.i("xx", "onPreDraw keyboardHeight = ${getKeyboardHeight()} contentHeight = ${mResizableContentView.height} preContentHeight = ${mPreContentHeight}")
             val contentHeight = mResizableContentView.height
             val keyboardHeight = getKeyboardHeight()
-
-            if (keyboardHeight == mLastKeyboardHeight || mLastKeyboardHeight == -1) {
-                mLastKeyboardHeight = keyboardHeight
+            if (contentHeight == mPreContentHeight) {
                 return true
             }
 
-            if (keyboardHeight > 0) {
-                mResizableContentView.setHeight(mContentHeight)
-                Log.i("xx", "show keyboard")
-                animateBottomView(true, keyboardHeight)
-                // animate bottom to show
-            } else {
-                mResizableContentView.setHeight(mContentHeight)
-                // animate bottom to hide
-                Log.i("xx", "hide keyboard")
-                animateBottomView(false, mLastKeyboardHeight)
+            if (mPreContentHeight != -1) {
+                val isKeyShow = getKeyboardHeight() > 0
+                Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight")
+                animateInputContent(isKeyShow, contentHeight, mPreContentHeight)
+
             }
-            mLastKeyboardHeight = keyboardHeight
+
+            mPreContentHeight = contentHeight
 
             return false
         }
 
     }
 
-    private fun animateBottomView(show: Boolean, height: Int) {
-        mHeightAnimator.cancel()
-        if (show) {
-            mBottomContent?.setHeight(0)
-            mHeightAnimator = ObjectAnimator.ofInt(0, height)
-            mHeightAnimator.duration = 150
-        } else {
-            mBottomContent?.setHeight(height)
-            mHeightAnimator = ObjectAnimator.ofInt(height, 0)
-            mHeightAnimator.duration = 300
-        }
-
-        mHeightAnimator.interpolator = FastOutSlowInInterpolator()
-        mHeightAnimator.addUpdateListener {
-            mBottomContent?.setHeight(it.animatedValue as Int)
-        }
-
-        mHeightAnimator.start()
-    }
-
     private fun animateInputContent(isKeyboardShown: Boolean, contentHeight: Int, preContentHeight: Int) {
-        mContainer?.setHeight(mContentHeight)
+        mContainer?.setHeight(preContentHeight)
         mHeightAnimator.cancel()
-        val keyboardHeight = getKeyboardHeight()
 
-        if (isKeyboardShown) {
-            mBottomContent?.setHeight(0)
-            mHeightAnimator = ObjectAnimator.ofInt(0, keyboardHeight)
-        } else {
-            mBottomContent?.setHeight(0)
-            mHeightAnimator = ObjectAnimator.ofInt(0, keyboardHeight)
-        }
-
+        mHeightAnimator = ObjectAnimator.ofInt(preContentHeight, contentHeight)
         mHeightAnimator.interpolator = FastOutSlowInInterpolator()
         mHeightAnimator.duration = 300
         Log.i("xx", "isKeyShow $isKeyboardShown $preContentHeight to $contentHeight ")
 
         mHeightAnimator.addUpdateListener {
             Log.i("xx", "anim height to ${it.animatedValue}")
-            mBottomContent?.setHeight(it.animatedValue as Int)
+            mContainer?.setHeight(it.animatedValue as Int)
 //            mContainer?.requestLayout()
         }
 
