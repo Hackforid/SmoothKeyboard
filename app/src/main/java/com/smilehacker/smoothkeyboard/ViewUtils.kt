@@ -21,3 +21,21 @@ fun View.addAutoRemovableOnPreDrawListener(listener: ViewTreeObserver.OnPreDrawL
         }
     })
 }
+
+fun View.addAutoRemovableOnGlobalLayoutListener(listener: ViewTreeObserver.OnGlobalLayoutListener) {
+    viewTreeObserver.addOnGlobalLayoutListener(listener)
+    addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(v: View?) {
+        }
+
+        override fun onViewDetachedFromWindow(v: View?) {
+            viewTreeObserver.removeOnGlobalLayoutListener(listener)
+        }
+    })
+}
+
+fun View.setHeight(height: Int) {
+    val lp = layoutParams
+    lp.height = height
+    layoutParams = lp
+}
