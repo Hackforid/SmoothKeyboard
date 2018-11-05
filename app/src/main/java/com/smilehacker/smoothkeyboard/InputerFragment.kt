@@ -19,10 +19,10 @@ import android.widget.FrameLayout
 class InputerFragment: DialogFragment() {
 
 
-    private val mBottomContent by lazy { view?.findViewById<FrameLayout>(R.id.bottom_content) }
-    private val mEtInput by lazy { view?.findViewById<EditText>(R.id.et_input) }
+    private val mBottomContent by lazy { getViews()?.findViewById<FrameLayout>(R.id.bottom_content) }
+    private val mEtInput by lazy { getViews()?.findViewById<EditText>(R.id.et_input) }
     private val mDecorView by lazy { dialog.window.decorView as ViewGroup }
-    private val mContainer by lazy { view?.findViewById<ViewGroup>(R.id.container) }
+    private val mContainer by lazy { getViews()?.findViewById<ViewGroup>(R.id.container) }
     private val mResizableContentView by lazy { mDecorView.findViewById<ViewGroup>(Window.ID_ANDROID_CONTENT) }
     private val mUnResizableContentView by lazy { mResizableContentView.parent as ViewGroup }
     private lateinit var mKeyboardContainer: FrameLayout
@@ -38,7 +38,7 @@ class InputerFragment: DialogFragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-        val view = inflater.inflate(R.layout.dialog_inputer, container, false)
+        val view = inflater.inflate(R.layout.dialog_inputer2, container, false)
         return view
     }
 
@@ -62,15 +62,21 @@ class InputerFragment: DialogFragment() {
     }
 
     private fun initUI() {
-        val detector = KeyBoardDetector()
         mKeyboardContainer = FrameLayout(context)
         val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0)
         lp.gravity = Gravity.BOTTOM
         mKeyboardContainer.layoutParams = lp
         mKeyboardContainer.setBackgroundColor(Color.WHITE)
         mDecorView.addView(mKeyboardContainer)
-        mDecorView.addAutoRemovableOnPreDrawListener(detector)
         mUnResizableContentView.bringToFront()
+
+        LayoutInflater.from(context).inflate(R.layout.dialog_inputer, mDecorView, true)
+        mContainer.post {
+            mContainer.setHeight(mUnResizableContentView.height)
+        }
+
+        val detector = KeyBoardDetector()
+        mDecorView.addAutoRemovableOnPreDrawListener(detector)
 //        mDecorView.addAutoRemovableOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
 //            private var mPreContentHeight = -1
 //            override fun onGlobalLayout() {
@@ -91,6 +97,10 @@ class InputerFragment: DialogFragment() {
 //                mPreContentHeight = contentHeight
 //            }
 //        })
+    }
+
+    private fun getViews() : View {
+        return mDecorView
     }
 
     private fun getKeyboardHeight(): Int {
