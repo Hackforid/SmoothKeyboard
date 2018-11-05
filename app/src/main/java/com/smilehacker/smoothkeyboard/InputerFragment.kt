@@ -70,6 +70,7 @@ class InputerFragment: DialogFragment() {
         mKeyboardContainer.setBackgroundColor(Color.WHITE)
         mDecorView.addView(mKeyboardContainer)
         mDecorView.addAutoRemovableOnPreDrawListener(detector)
+        mUnResizableContentView.bringToFront()
 //        mDecorView.addAutoRemovableOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
 //            private var mPreContentHeight = -1
 //            override fun onGlobalLayout() {
