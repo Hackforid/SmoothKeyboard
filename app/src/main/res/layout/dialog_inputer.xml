@@ -19,7 +19,6 @@
             android:layout_height="wrap_content"
             android:text="HELLO"
             android:layout_gravity="center"
-            android:padding="0dp"
         />
     </FrameLayout>
     <TextView

@@ -1,17 +1,20 @@
 package com.smilehacker.smoothkeyboard
 
+import android.animation.Animator
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Dialog
-import android.graphics.Color
+import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
 import android.support.v4.app.DialogFragment
 import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.util.Log
 import android.view.*
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+
 
 /**
  * Created by quan.zhou on 2018-11-01.
@@ -26,6 +29,11 @@ class InputerFragment: DialogFragment() {
     private val mResizableContentView by lazy { mDecorView.findViewById<ViewGroup>(Window.ID_ANDROID_CONTENT) }
     private val mUnResizableContentView by lazy { mResizableContentView.parent as ViewGroup }
     private lateinit var mKeyboardContainer: FrameLayout
+
+    private var mOriginContainerHeight = 0
+    private var mLastKeyboardHeight = 0
+
+    private var mShouldShowBottom = false
 
 
 
@@ -62,17 +70,11 @@ class InputerFragment: DialogFragment() {
     }
 
     private fun initUI() {
-        mKeyboardContainer = FrameLayout(context)
-        val lp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0)
-        lp.gravity = Gravity.BOTTOM
-        mKeyboardContainer.layoutParams = lp
-        mKeyboardContainer.setBackgroundColor(Color.WHITE)
-        mDecorView.addView(mKeyboardContainer)
-        mUnResizableContentView.bringToFront()
 
         LayoutInflater.from(context).inflate(R.layout.dialog_inputer, mDecorView, true)
         mContainer.post {
-            mContainer.setHeight(mUnResizableContentView.height)
+            mOriginContainerHeight = mContainer.height - (mDecorView.bottom - mUnResizableContentView.bottom)
+            mContainer.setHeight(mOriginContainerHeight)
         }
 
         val detector = KeyBoardDetector()
@@ -90,13 +92,17 @@ class InputerFragment: DialogFragment() {
 //                if (mPreContentHeight != -1) {
 //                    val isKeyShow = getKeyboardHeight() > 0
 //                    Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight")
-//                    animateInputContent(isKeyShow, contentHeight, mPreContentHeight)
+//                    animateBottomContent(isKeyShow, contentHeight, mPreContentHeight)
 //
 //                }
 //
 //                mPreContentHeight = contentHeight
 //            }
 //        })
+
+        mDecorView.findViewById<View>(R.id.btn_emoji).setOnClickListener {
+            showBottomView(!mShouldShowBottom)
+        }
     }
 
     private fun getViews() : View {
@@ -106,7 +112,19 @@ class InputerFragment: DialogFragment() {
     private fun getKeyboardHeight(): Int {
         val r = Rect()
         mUnResizableContentView.getWindowVisibleDisplayFrame(r)
-        return mUnResizableContentView.bottom - r.bottom
+        val height = mUnResizableContentView.bottom - r.bottom
+        if (height > 0) {
+            mLastKeyboardHeight = height
+        }
+        return height
+    }
+
+    private fun isKeyboardShown(): Boolean {
+        return getKeyboardHeight() > 0
+    }
+
+    private fun isBottomShown(): Boolean {
+        return mBottomContent.height > 0
     }
 
 
@@ -114,18 +132,16 @@ class InputerFragment: DialogFragment() {
         private var mPreContentHeight = -1
 
         override fun onPreDraw(): Boolean {
-            Log.i("xx", "onPreDraw keyboardHeight = ${getKeyboardHeight()} contentHeight = ${mResizableContentView.height} preContentHeight = ${mPreContentHeight}")
+//            Log.i("xx", "onPreDraw keyboardHeight = ${getKeyboardHeight()} contentHeight = ${mResizableContentView.height} preContentHeight = ${mPreContentHeight}")
             val contentHeight = mResizableContentView.height
-            val keyboardHeight = getKeyboardHeight()
             if (contentHeight == mPreContentHeight) {
                 return true
             }
 
             if (mPreContentHeight != -1) {
-                val isKeyShow = getKeyboardHeight() > 0
-                Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight ${mDecorView::class.java.canonicalName}")
-                animateInputContent(isKeyShow, contentHeight, mPreContentHeight)
-
+                val isKeyShow = isKeyboardShown()
+                Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight ")
+                handleKeyboardToggle(isKeyShow)
             }
 
             mPreContentHeight = contentHeight
@@ -135,23 +151,88 @@ class InputerFragment: DialogFragment() {
 
     }
 
-    private fun animateInputContent(isKeyboardShown: Boolean, contentHeight: Int, preContentHeight: Int) {
-        mKeyboardContainer.setHeight(mDecorView.height - preContentHeight)
-        mContainer?.setHeight(preContentHeight)
+    private fun handleKeyboardToggle(show: Boolean) {
+        if (show) {
+            mShouldShowBottom = false
+            animateBottomContent(true)
+        } else {
+            if (mShouldShowBottom) {
+                return
+            } else {
+                animateBottomContent(false)
+            }
+        }
+    }
+
+    private fun animateBottomContent(show: Boolean) {
+//        if (show && isBottomShown()) {
+//            return
+//        }
+//
+//        if (!show && !isBottomShown()) {
+//            return
+//        }
+
         mHeightAnimator.cancel()
 
-        mHeightAnimator = ObjectAnimator.ofInt(preContentHeight, contentHeight)
+        if (show) {
+            mHeightAnimator = ObjectAnimator.ofInt(mBottomContent.height, mLastKeyboardHeight)
+            Log.i("xx", "from ${mBottomContent.height} to $mLastKeyboardHeight")
+        } else {
+            mHeightAnimator = ObjectAnimator.ofInt(mBottomContent.height, 0)
+            Log.i("xx", "from ${mBottomContent.height} to 0")
+        }
         mHeightAnimator.interpolator = FastOutSlowInInterpolator()
-        mHeightAnimator.duration = if (isKeyboardShown) 150 else 300
-        Log.i("xx", "isKeyShow $isKeyboardShown $preContentHeight to $contentHeight ")
+        mHeightAnimator.duration = if (show) 150 else 300
 
         mHeightAnimator.addUpdateListener {
-            Log.i("xx", "anim height to ${it.animatedValue}")
-            mContainer?.setHeight(it.animatedValue as Int)
-//            mContainer?.requestLayout()
-            mKeyboardContainer.setHeight(mDecorView.height - it.animatedValue as Int)
+            mBottomContent?.setHeight(it.animatedValue as Int)
         }
+        mHeightAnimator.addListener(object : Animator.AnimatorListener {
+            override fun onAnimationRepeat(animation: Animator?) {
+            }
 
+            override fun onAnimationEnd(animation: Animator?) {
+            }
+
+            override fun onAnimationCancel(animation: Animator?) {
+            }
+
+            override fun onAnimationStart(animation: Animator?) {
+            }
+
+        })
         mHeightAnimator.start()
+    }
+
+    private fun showBottomView(show: Boolean) {
+        mShouldShowBottom = show
+        if (show && mLastKeyboardHeight > 0) {
+            if (isKeyboardShown()) {
+                hideKeyBoard()
+            }
+            animateBottomContent(true)
+        } else {
+            if (isKeyboardShown()) {
+                return
+            } else {
+                showKeyBoard()
+            }
+
+        }
+    }
+
+    private fun hideKeyBoard() {
+        if (mEtInput != null) {
+            val imm = context!!.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager?
+            imm!!.hideSoftInputFromWindow(mEtInput.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS)
+        }
+    }
+
+    private fun showKeyBoard() {
+        if (mEtInput != null) {
+            val imm = context!!.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager?
+            imm!!.showSoftInput(mEtInput, InputMethodManager.SHOW_IMPLICIT)
+        }
     }
 }
