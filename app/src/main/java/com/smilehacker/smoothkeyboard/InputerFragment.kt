@@ -5,6 +5,7 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Dialog
 import android.content.Context
+import android.content.DialogInterface
 import android.graphics.Rect
 import android.os.Bundle
 import android.support.v4.app.DialogFragment
@@ -22,10 +23,12 @@ import android.widget.FrameLayout
 class InputerFragment: DialogFragment() {
 
 
-    private val mBottomContent by lazy { getViews()?.findViewById<FrameLayout>(R.id.bottom_content) }
-    private val mEtInput by lazy { getViews()?.findViewById<EditText>(R.id.et_input) }
+    private val mBottomContent by lazy { getViews().findViewById<FrameLayout>(R.id.bottom_content) }
+    private val mEtInput by lazy { getViews().findViewById<EditText>(R.id.et_input) }
     private val mDecorView by lazy { dialog.window.decorView as ViewGroup }
-    private val mContainer by lazy { getViews()?.findViewById<ViewGroup>(R.id.container) }
+    private val mContainer by lazy { getViews().findViewById<ViewGroup>(R.id.container) }
+    private val mEmpytView by lazy { getViews().findViewById<View>(R.id.v_empty) }
+
     private val mResizableContentView by lazy { mDecorView.findViewById<ViewGroup>(Window.ID_ANDROID_CONTENT) }
     private val mUnResizableContentView by lazy { mResizableContentView.parent as ViewGroup }
     private lateinit var mKeyboardContainer: FrameLayout
@@ -38,6 +41,9 @@ class InputerFragment: DialogFragment() {
 
 
     private var mHeightAnimator: ValueAnimator = ObjectAnimator()
+
+    // 正在执行finish动画
+    private var mIsFinishing = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,21 +63,56 @@ class InputerFragment: DialogFragment() {
 
     override fun onStart() {
         super.onStart()
-        dialog?.window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
+
+        // dialog全屏透明
+        dialog?.window?.let {
+            it.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
+            val windowParams = it.attributes
+            windowParams.dimAmount = 0.0f
+            it .attributes = windowParams
+        }
     }
 
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val dialog = super.onCreateDialog(savedInstanceState)
         dialog.window?.requestFeature(Window.FEATURE_NO_TITLE)
+//        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT));
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         dialog.window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
+
+        dialog.setOnKeyListener(object : DialogInterface.OnKeyListener {
+            override fun onKey(dialog: DialogInterface?, keyCode: Int, event: KeyEvent?): Boolean {
+                if (keyCode == KeyEvent.KEYCODE_BACK) {
+                    if (!isKeyboardShown() && isBottomShown()) {
+                        close()
+                        return true
+                    }
+                }
+
+                return false
+            }
+        })
         return dialog
     }
 
+    private fun close() {
+        if (!mIsFinishing) {
+            if (isKeyboardShown()) {
+                hideKeyBoard()
+            } else if (isBottomShown()) {
+                animateBottomContent(false)
+            } else {
+                dismissAllowingStateLoss()
+            }
+        }
+        mIsFinishing = true
+    }
+
+
     private fun initUI() {
 
-        LayoutInflater.from(context).inflate(R.layout.dialog_inputer, mDecorView, true)
+        val view = LayoutInflater.from(context).inflate(R.layout.dialog_inputer, mDecorView, true)
         mContainer.post {
             mOriginContainerHeight = mContainer.height - (mDecorView.bottom - mUnResizableContentView.bottom)
             mContainer.setHeight(mOriginContainerHeight)
@@ -79,29 +120,19 @@ class InputerFragment: DialogFragment() {
 
         val detector = KeyBoardDetector()
         mDecorView.addAutoRemovableOnPreDrawListener(detector)
-//        mDecorView.addAutoRemovableOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
-//            private var mPreContentHeight = -1
-//            override fun onGlobalLayout() {
-//                Log.i("xx", "onGlobalLayout keyboardHeight = ${getKeyboardHeight()} contentHeight = ${mResizableContentView.height} preContentHeight = ${mPreContentHeight}")
-//                val contentHeight = mResizableContentView.height
-//                val keyboardHeight = getKeyboardHeight()
-//                if (contentHeight == mPreContentHeight) {
-//                    return
-//                }
-//
-//                if (mPreContentHeight != -1) {
-//                    val isKeyShow = getKeyboardHeight() > 0
-//                    Log.i("xx", "$isKeyShow ${mDecorView.height} $contentHeight $mPreContentHeight")
-//                    animateBottomContent(isKeyShow, contentHeight, mPreContentHeight)
-//
-//                }
-//
-//                mPreContentHeight = contentHeight
-//            }
-//        })
 
-        mDecorView.findViewById<View>(R.id.btn_emoji).setOnClickListener {
+        view.findViewById<View>(R.id.btn_emoji).setOnClickListener {
             showBottomView(!mShouldShowBottom)
+        }
+
+        view.bringToFront()
+
+        mEtInput.post {
+            mEtInput.requestFocus()
+            showKeyBoard()
+        }
+        mEmpytView.setOnClickListener {
+            close()
         }
     }
 
@@ -165,13 +196,6 @@ class InputerFragment: DialogFragment() {
     }
 
     private fun animateBottomContent(show: Boolean) {
-//        if (show && isBottomShown()) {
-//            return
-//        }
-//
-//        if (!show && !isBottomShown()) {
-//            return
-//        }
 
         mHeightAnimator.cancel()
 
@@ -193,6 +217,11 @@ class InputerFragment: DialogFragment() {
             }
 
             override fun onAnimationEnd(animation: Animator?) {
+                if (!show) {
+                    mEtInput.post {
+                        this@InputerFragment.dismissAllowingStateLoss()
+                    }
+                }
             }
 
             override fun onAnimationCancel(animation: Animator?) {
